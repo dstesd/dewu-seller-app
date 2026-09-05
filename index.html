@@ -11,7 +11,145 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="GIGS" />
     <title>GIGS 收益统计</title>
-    <script type="module" crossorigin src="/dewu-seller-app/assets/index-r_F4a0dt.js"></script>
+    <script>
+      /*! 启动保护（内联，不依赖任何外部资源）：
+          1) 主屏幕 standalone 冷启动落在深链（如 /dewu-seller-app/login）时自动纠正回根地址
+          2) 主 JS 网络加载失败时自动重试刷新（60秒内最多3次）
+          3) 启动时显示轻量 loading；超时未挂载显示“重新加载”兜底按钮，杜绝纯白屏 */
+      (function () {
+        var RETRY_KEY = 'gigs_boot_retry';
+        var MOUNT_FLAG = '__GIGS_MOUNTED__';
+
+        function isStandalone() {
+          return (
+            window.navigator.standalone === true ||
+            (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+          );
+        }
+
+        // 推导部署 base：构建后模块脚本地址为 /<base>/assets/xxx.js；GitHub Pages 也可用主机名+首段路径推导
+        function deriveBase() {
+          var s = document.querySelector('script[type=module][src]');
+          if (s) {
+            var src = s.getAttribute('src') || '';
+            var p = src;
+            if (src.indexOf('http') === 0) {
+              try { p = new URL(src).pathname; } catch (e) {}
+            }
+            var i = p.indexOf('/assets/');
+            if (i >= 0) return p.substring(0, i + 1);
+          }
+          if (location.hostname.indexOf('.github.io') !== -1) {
+            var seg = location.pathname.split('/')[1];
+            if (seg) return '/' + seg + '/';
+          }
+          return '/';
+        }
+
+        function isRootPath(base, pathname) {
+          return pathname === base || pathname === base.replace(/\/$/, '') || pathname === base + 'index.html';
+        }
+
+        // 1) 深链纠正（仅主屏幕 standalone 模式）
+        if (isStandalone()) {
+          var base0 = deriveBase();
+          if (!isRootPath(base0, location.pathname)) {
+            location.replace(base0);
+            return; // 页面即将跳转，不再注册后续逻辑
+          }
+        }
+
+        // 2) 轻量启动 loading
+        function showBoot() {
+          if (document.getElementById('gigs-boot')) return;
+          if (!document.body) return;
+          var d = document.createElement('div');
+          d.id = 'gigs-boot';
+          d.style.cssText =
+            'position:fixed;inset:0;z-index:9998;background:#f9fafb;display:flex;flex-direction:column;' +
+            'align-items:center;justify-content:center;gap:14px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;';
+          d.innerHTML =
+            '<div style="width:30px;height:30px;border:3px solid #e5e7eb;border-top-color:#1f2937;' +
+            'border-radius:50%;animation:gigsspin .8s linear infinite"></div>' +
+            '<div style="color:#9ca3af;font-size:13px;">加载中...</div>' +
+            '<style>@keyframes gigsspin{to{transform:rotate(360deg)}}</style>';
+          document.body.appendChild(d);
+        }
+        if (document.body) showBoot();
+        else document.addEventListener('DOMContentLoaded', showBoot);
+
+        function hideBoot() {
+          var d = document.getElementById('gigs-boot');
+          if (d && d.parentNode) d.parentNode.removeChild(d);
+        }
+
+        // 3) 主 JS 加载失败 → 自动重试（限次）
+        function getRetry() {
+          try {
+            var raw = localStorage.getItem(RETRY_KEY);
+            if (!raw) return { n: 0, t: 0 };
+            var obj = JSON.parse(raw);
+            if (!obj || Date.now() - (obj.t || 0) > 60000) return { n: 0, t: 0 };
+            return obj;
+          } catch (e) { return { n: 0, t: 0 }; }
+        }
+        function scheduleReload() {
+          var info = getRetry();
+          if (info.n >= 3) return; // 超过次数不再自动刷新，交给兜底界面的手动按钮
+          info.n += 1;
+          info.t = Date.now();
+          try { localStorage.setItem(RETRY_KEY, JSON.stringify(info)); } catch (e) {}
+          setTimeout(function () { window.location.reload(); }, 1200);
+        }
+        window.addEventListener(
+          'error',
+          function (e) {
+            var t = e && e.target;
+            if (t && t.tagName === 'SCRIPT' && t.type === 'module' && t.src) {
+              scheduleReload();
+            }
+          },
+          true
+        );
+
+        // 4) 超时未挂载 → 兜底界面（手动重新加载）
+        function showFallback() {
+          if (window[MOUNT_FLAG] || !document.body) return;
+          hideBoot();
+          if (document.getElementById('gigs-fallback')) return;
+          var d = document.createElement('div');
+          d.id = 'gigs-fallback';
+          d.style.cssText =
+            'position:fixed;inset:0;z-index:9999;background:#ffffff;display:flex;flex-direction:column;' +
+            'align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;' +
+            'font-family:-apple-system,BlinkMacSystemFont,sans-serif;';
+          d.innerHTML =
+            '<div style="font-size:22px;font-weight:700;color:#111827;letter-spacing:1px;">GIGS</div>' +
+            '<div style="font-size:14px;color:#6b7280;line-height:1.7;">网络较慢，应用没有加载成功<br/>请确认网络正常后点击下方按钮重试</div>' +
+            '<button type="button" id="gigs-reload-btn" style="margin-top:10px;padding:12px 40px;font-size:15px;' +
+            'font-weight:600;color:#ffffff;background:#1f2937;border:none;border-radius:999px;-webkit-appearance:none;">重新加载</button>';
+          document.body.appendChild(d);
+          var btn = document.getElementById('gigs-reload-btn');
+          if (btn) btn.onclick = function () { window.location.reload(); };
+        }
+        setTimeout(function () {
+          if (window[MOUNT_FLAG]) hideBoot();
+          else showFallback();
+        }, 9000);
+
+        // 应用挂载成功后清理 loading / 兜底界面 / 重试计数
+        var watch = setInterval(function () {
+          if (window[MOUNT_FLAG]) {
+            hideBoot();
+            var f = document.getElementById('gigs-fallback');
+            if (f && f.parentNode) f.parentNode.removeChild(f);
+            try { localStorage.removeItem(RETRY_KEY); } catch (e) {}
+            clearInterval(watch);
+          }
+        }, 300);
+      })();
+    </script>
+    <script type="module" crossorigin src="/dewu-seller-app/assets/index-pxsMALb0.js"></script>
     <link rel="stylesheet" crossorigin href="/dewu-seller-app/assets/index-CQO2cBqt.css">
   <link rel="manifest" href="/dewu-seller-app/manifest.webmanifest"></head>
   <body>
