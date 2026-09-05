@@ -14,12 +14,14 @@
     <script>
       /*! 启动保护（内联，不依赖任何外部资源）：
           1) 主屏幕 standalone 冷启动落在深链时自动纠正回根地址
-          2) 主 JS 加载失败自动快速重试；兜底后每 20 秒慢速自动重试（网络恢复即自愈）
-          3) 启动显示 loading；20 秒未挂载显示兜底界面 + 诊断信息（便于定位），杜绝纯白屏 */
+          2) 主 JS 加载“失败”（报错）时自动快速重试；注意：下载慢≠失败，绝不自动刷新打断下载
+          3) 启动显示 loading 与计时；弱网下持续等待并实时刷新诊断，提供手动重试按钮，杜绝纯白屏 */
       (function () {
         var RETRY_KEY = 'gigs_boot_retry';
         var MOUNT_FLAG = '__GIGS_MOUNTED__';
+        var START = Date.now();
         var errors = [];
+        var slowMode = false;
 
         function isStandalone() {
           return (
@@ -63,7 +65,7 @@
             var raw = localStorage.getItem(RETRY_KEY);
             if (!raw) return { n: 0, t: 0 };
             var obj = JSON.parse(raw);
-            if (!obj || Date.now() - (obj.t || 0) > 60000) return { n: 0, t: 0 };
+            if (!obj || Date.now() - (obj.t || 0) > 120000) return { n: 0, t: 0 };
             return obj;
           } catch (e) { return { n: 0, t: 0 }; }
         }
@@ -71,112 +73,28 @@
           try { localStorage.setItem(RETRY_KEY, JSON.stringify({ n: n, t: Date.now() })); } catch (e) {}
         }
 
-        // 2) 轻量启动 loading
-        function showBoot() {
-          if (document.getElementById('gigs-boot') || !document.body) return;
-          var d = document.createElement('div');
-          d.id = 'gigs-boot';
-          d.style.cssText =
-            'position:fixed;inset:0;z-index:9998;background:#f9fafb;display:flex;flex-direction:column;' +
-            'align-items:center;justify-content:center;gap:14px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;';
-          d.innerHTML =
-            '<div style="width:30px;height:30px;border:3px solid #e5e7eb;border-top-color:#1f2937;' +
-            'border-radius:50%;animation:gigsspin .8s linear infinite"></div>' +
-            '<div style="color:#9ca3af;font-size:13px;">加载中，首次启动可能需要几十秒...</div>' +
-            '<style>@keyframes gigsspin{to{transform:rotate(360deg)}}</style>';
-          document.body.appendChild(d);
-        }
-        if (document.body) showBoot();
-        else document.addEventListener('DOMContentLoaded', showBoot);
-
-        function hideBoot() {
+        // 2) 启动 loading（持续显示直到应用挂载；弱网下只更新文案，不打断下载）
+        function bootEl() {
+          if (!document.body) return null;
           var d = document.getElementById('gigs-boot');
-          if (d && d.parentNode) d.parentNode.removeChild(d);
-        }
-
-        // 3) 错误捕获：资源加载失败 → 快速重试；运行时错误 → 记录用于诊断
-        window.addEventListener(
-          'error',
-          function (e) {
-            var t = e && e.target;
-            if (t && t.tagName && t !== window) {
-              if (t.tagName === 'SCRIPT') {
-                errors.push('JS文件加载失败: ' + String(t.src || '').split('/').pop());
-                var info = getRetry();
-                if (info.n < 3) {
-                  setRetry(info.n + 1);
-                  setTimeout(function () { window.location.reload(); }, 1200);
-                }
-              }
-            } else if (e && e.message) {
-              errors.push('运行错误: ' + String(e.message).slice(0, 150) + (e.lineno ? ' (行' + e.lineno + ')' : ''));
-            }
-          },
-          true
-        );
-        window.addEventListener('unhandledrejection', function (e) {
-          var r = e && e.reason;
-          errors.push('Promise错误: ' + String((r && (r.message || (r.toString && r.toString()))) || r || '未知').slice(0, 150));
-        });
-
-        function hasRuntimeError() {
-          for (var i = 0; i < errors.length; i++) {
-            if (errors[i].indexOf('加载失败') === -1) return true;
-          }
-          return false;
-        }
-
-        // 4) 诊断信息（显示在兜底界面，便于截图排查）
-        function diagText() {
-          var L = [];
-          L.push('路径: ' + location.pathname);
-          L.push('网络: ' + (navigator.onLine ? '在线' : '离线'));
-          L.push('快速重试: ' + getRetry().n + ' 次');
-          try {
-            if ('serviceWorker' in navigator) {
-              L.push('离线缓存: ' + (navigator.serviceWorker.controller ? '已启用' : '未启用(冷启动)'));
-            } else {
-              L.push('离线缓存: 浏览器不支持');
-            }
-          } catch (e) {}
-          var jsSeen = false;
-          try {
-            var ents = performance.getEntriesByType('resource');
-            for (var i = 0; i < ents.length; i++) {
-              var en = ents[i];
-              if (en.name.indexOf('/assets/') !== -1 && en.name.indexOf('.js') !== -1) {
-                jsSeen = true;
-                L.push('主程序: 已下载 ' + Math.round((en.encodedBodySize || 0) / 1024) + 'KB / 耗时 ' + (Math.round(en.duration) / 1000) + '秒');
-              }
-            }
-          } catch (e) {}
-          if (!jsSeen) L.push('主程序: 未开始下载或下载中断');
-          var rootEl = document.getElementById('root');
-          L.push('页面内容: ' + (rootEl ? rootEl.childElementCount : 0) + ' 块');
-          if (errors.length) L.push('最后错误: ' + errors.slice(-2).join(' | ').slice(0, 300));
-          return L.join('\n');
-        }
-
-        // 5) 超时未挂载 → 兜底界面（手动按钮 + 诊断 + 慢速自动重试）
-        function showFallback() {
-          if (window[MOUNT_FLAG] || !document.body) return;
-          hideBoot();
-          var d = document.getElementById('gigs-fallback');
           if (!d) {
             d = document.createElement('div');
-            d.id = 'gigs-fallback';
+            d.id = 'gigs-boot';
             d.style.cssText =
-              'position:fixed;inset:0;z-index:9999;background:#ffffff;display:flex;flex-direction:column;' +
-              'align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;' +
+              'position:fixed;inset:0;z-index:9998;background:#ffffff;display:flex;flex-direction:column;' +
+              'align-items:center;justify-content:center;gap:14px;padding:28px;text-align:center;' +
               'font-family:-apple-system,BlinkMacSystemFont,sans-serif;overflow-y:auto;';
             d.innerHTML =
-              '<div style="font-size:22px;font-weight:700;color:#111827;letter-spacing:1px;margin-top:20px;">GIGS</div>' +
-              '<div style="font-size:14px;color:#6b7280;line-height:1.7;">网络较慢，应用没有加载成功<br/>将自动重试，也可点击按钮立即重试</div>' +
-              '<button type="button" id="gigs-reload-btn" style="margin-top:8px;padding:12px 40px;font-size:15px;' +
-              'font-weight:600;color:#ffffff;background:#1f2937;border:none;border-radius:999px;-webkit-appearance:none;">重新加载</button>' +
-              '<pre id="gigs-diag" style="margin-top:18px;padding:12px 14px;background:#f3f4f6;border-radius:10px;' +
+              '<div style="width:30px;height:30px;border:3px solid #e5e7eb;border-top-color:#1f2937;' +
+              'border-radius:50%;animation:gigsspin .8s linear infinite"></div>' +
+              '<div id="gigs-boot-title" style="color:#374151;font-size:15px;font-weight:600;">正在启动 GIGS...</div>' +
+              '<div id="gigs-boot-sub" style="color:#9ca3af;font-size:13px;line-height:1.7;">首次打开需要下载程序文件<br/>请保持本页面打开，不要退出或锁屏</div>' +
+              '<pre id="gigs-diag" style="display:none;margin-top:16px;padding:12px 14px;background:#f3f4f6;border-radius:10px;' +
               'font-size:11px;color:#9ca3af;text-align:left;white-space:pre-wrap;word-break:break-all;width:100%;' +
-              'max-width:340px;line-height:1.6;"></pre>';
+              'max-width:340px;line-height:1.6;"></pre>' +
+              '<button type="button" id="gigs-reload-btn" style="display:none;margin-top:10px;padding:11px 36px;font-size:15px;' +
+              'font-weight:600;color:#ffffff;background:#1f2937;border:none;border-radius:999px;-webkit-appearance:none;">重新加载</button>' +
+              '<style>@keyframes gigsspin{to{transform:rotate(360deg)}}</style>';
             document.body.appendChild(d);
             var btn = document.getElementById('gigs-reload-btn');
             if (btn) {
@@ -186,36 +104,101 @@
               };
             }
           }
-          var diag = document.getElementById('gigs-diag');
-          if (diag) diag.textContent = diagText();
+          return d;
         }
-        setTimeout(function () {
-          if (window[MOUNT_FLAG]) hideBoot();
-          else showFallback();
-        }, 20000);
+        if (document.body) bootEl();
+        else document.addEventListener('DOMContentLoaded', bootEl);
 
-        // 兜底后每 20 秒慢速自动重试（仅限资源/网络问题；程序运行时错误不自动刷新，避免死循环）
-        setInterval(function () {
-          if (window[MOUNT_FLAG]) return;
-          if (!document.getElementById('gigs-fallback')) return;
-          if (hasRuntimeError()) return;
-          window.location.reload();
-        }, 20000);
+        function hideBoot() {
+          var d = document.getElementById('gigs-boot');
+          if (d && d.parentNode) d.parentNode.removeChild(d);
+        }
 
-        // 应用挂载成功后清理一切
-        var watch = setInterval(function () {
+        // 3) 错误捕获：仅“资源加载失败”（网络中断/404）才自动快速重试；下载慢不会触发
+        window.addEventListener(
+          'error',
+          function (e) {
+            var t = e && e.target;
+            if (t && t.tagName && t !== window) {
+              if (t.tagName === 'SCRIPT' || t.tagName === 'LINK') {
+                errors.push('文件加载失败: ' + String(t.src || t.href || '').split('/').pop());
+                var info = getRetry();
+                if (info.n < 3) {
+                  setRetry(info.n + 1);
+                  setTimeout(function () { window.location.reload(); }, 1500);
+                }
+              }
+            } else if (e && e.message) {
+              errors.push('运行错误: ' + String(e.message).slice(0, 120) + (e.lineno ? ' (行' + e.lineno + ')' : ''));
+            }
+          },
+          true
+        );
+        window.addEventListener('unhandledrejection', function (e) {
+          var r = e && e.reason;
+          errors.push('Promise错误: ' + String((r && (r.message || (r.toString && r.toString()))) || r || '未知').slice(0, 120));
+        });
+
+        // 4) 诊断（实时刷新，截图即可定位卡点）
+        function jsStatus() {
+          var done = 0;
+          var pending = 0;
+          try {
+            var ents = performance.getEntriesByType('resource');
+            for (var i = 0; i < ents.length; i++) {
+              var en = ents[i];
+              if (en.name.indexOf('/assets/') !== -1 && en.name.indexOf('.js') !== -1) {
+                if (en.responseEnd > 0) done += en.encodedBodySize || 0;
+                else pending++;
+              }
+            }
+          } catch (e) {}
+          if (done > 0) return '主程序: 已下载 ' + Math.round(done / 1024) + 'KB' + (pending ? '（还有文件下载中）' : '');
+          return pending ? '主程序: 下载中...（慢网可能需要几分钟）' : '主程序: 等待下载...';
+        }
+        function diagText() {
+          var L = [];
+          L.push('已等待: ' + Math.round((Date.now() - START) / 1000) + ' 秒');
+          L.push('网络: ' + (navigator.onLine ? '在线' : '离线'));
+          try {
+            L.push('离线缓存: ' + (navigator.serviceWorker && navigator.serviceWorker.controller ? '已启用' : '首次启动(尚未缓存)'));
+          } catch (e) {}
+          L.push(jsStatus());
+          var rootEl = document.getElementById('root');
+          L.push('页面内容: ' + (rootEl ? rootEl.childElementCount : 0) + ' 块');
+          if (errors.length) L.push('错误: ' + errors.slice(-2).join(' | ').slice(0, 260));
+          return L.join('\n');
+        }
+
+        // 5) 每 1.5 秒刷新状态：挂载成功就收尾；超过 15 秒进入“慢网模式”（显示诊断+手动按钮，但继续等待，不刷新）
+        var tick = setInterval(function () {
           if (window[MOUNT_FLAG]) {
             hideBoot();
-            var f = document.getElementById('gigs-fallback');
-            if (f && f.parentNode) f.parentNode.removeChild(f);
             try { localStorage.removeItem(RETRY_KEY); } catch (e) {}
-            clearInterval(watch);
+            clearInterval(tick);
+            return;
           }
-        }, 300);
+          var d = bootEl();
+          if (!d) return;
+          var sec = Math.round((Date.now() - START) / 1000);
+          var title = document.getElementById('gigs-boot-title');
+          var sub = document.getElementById('gigs-boot-sub');
+          var diag = document.getElementById('gigs-diag');
+          var btn = document.getElementById('gigs-reload-btn');
+          if (sec > 15) {
+            slowMode = true;
+            if (title) title.textContent = '网络较慢，仍在下载中...';
+            if (sub) sub.innerHTML = '请继续保持本页面打开，不要退出<br/>下载完成后会自动进入应用';
+            if (diag) { diag.style.display = 'block'; diag.textContent = diagText(); }
+            if (btn) btn.style.display = 'inline-block';
+          } else if (title) {
+            title.textContent = '正在启动 GIGS... (' + sec + 's)';
+          }
+        }, 1500);
       })();
     </script>
-    <script type="module" crossorigin src="/dewu-seller-app/assets/index-BP8SxWQR.js"></script>
-    <link rel="stylesheet" crossorigin href="/dewu-seller-app/assets/index-CQO2cBqt.css">
+    <script type="module" crossorigin src="/dewu-seller-app/assets/index-jx90E-pC.js"></script>
+    <link rel="stylesheet" crossorigin href="/dewu-seller-app/assets/index-DfFBuGhp.css">
   <link rel="manifest" href="/dewu-seller-app/manifest.webmanifest"></head>
   <body>
     <div id="root"></div>
