@@ -48,15 +48,27 @@
       .g-loadhint { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 14px; color: #9ca3af; font-size: 12px; }
       .g-spin { width: 13px; height: 13px; border: 2px solid #e5e7eb; border-top-color: #6b7280; border-radius: 50%; animation: gspin .8s linear infinite; }
       @keyframes gspin { to { transform: rotate(360deg); } }
+      /* 崩溃黑匣子：任何未被捕获的 JS 错误都显示在屏幕上，白屏变红字报错屏 */
+      .g-crash {
+        position: fixed; inset: 0; z-index: 10000; background: #ffffff; display: flex;
+        flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+        padding: 26px; text-align: center; font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      }
+      .g-crash-title { font-size: 18px; font-weight: 700; color: #dc2626; }
+      .g-crash-msg { font-size: 12px; color: #ef4444; background: #fef2f2; border: 1px solid #fecaca;
+        border-radius: 10px; padding: 12px 14px; white-space: pre-wrap; word-break: break-all; max-width: 360px; line-height: 1.6; }
+      .g-crash-btn { padding: 11px 36px; font-size: 14px; font-weight: 600; color: #fff; background: #1f2937;
+        border: none; border-radius: 999px; -webkit-appearance: none; }
     </style>
     <script>
       /*! 启动保护（内联，极简）：
           1) standalone 深链纠正：桌面图标冷启动落在内页时自动回到根地址
           2) 静态登录外壳：点开图标立即看到登录页（#root 内），React 加载完成后自动替换为真实界面
           3) 新 Service Worker 接管（新版本缓存就绪）且应用尚未挂载时自动刷新一次，避免“新网页+旧缓存”互相等待
-          4) 主程序文件加载“失败”（网络中断）时自动重试，最多 3 次 */
+          4) 崩溃黑匣子：任何 JS 运行时错误 / Promise 异常，都把错误信息直接显示到屏幕（而不是白屏），便于定位 */
       (function () {
         var RETRY_KEY = 'gigs_boot_retry';
+        var crashed = false;
 
         function isStandalone() {
           return (
@@ -93,10 +105,47 @@
           }
         }
 
-        // 2) 新 SW 接管且尚未挂载 → 自动刷新一次（sessionStorage 防循环）
+        // 2) 崩溃黑匣子：错误上屏，白屏变报错屏
+        function showCrash(msg) {
+          if (crashed) return;
+          crashed = true;
+          var rootEl = document.getElementById('root');
+          if (rootEl) rootEl.innerHTML = '';
+          if (document.body) {
+            var d = document.createElement('div');
+            d.className = 'g-crash';
+            d.innerHTML =
+              '<div class="g-crash-title">程序出错了</div>' +
+              '<div class="g-crash-msg"></div>' +
+              '<button type="button" class="g-crash-btn">重新加载</button>';
+            var msgEl = d.querySelector('.g-crash-msg');
+            if (msgEl) msgEl.textContent = msg;
+            d.querySelector('.g-crash-btn').onclick = function () {
+              try { localStorage.removeItem(RETRY_KEY); } catch (e) {}
+              window.location.reload();
+            };
+            document.body.appendChild(d);
+          }
+        }
+        window.addEventListener('error', function (e) {
+          var t = e && e.target;
+          // 资源加载失败（SCRIPT/LINK）已有专门重试，这里只处理真正的运行时错误
+          if (t && (t.tagName === 'SCRIPT' || t.tagName === 'LINK') && t !== window) return;
+          var parts = [];
+          if (e && e.message) parts.push(String(e.message).slice(0, 160));
+          if (e && e.filename) parts.push(String(e.filename).split('/').pop() + (e.lineno ? ' 行' + e.lineno : ''));
+          showCrash(parts.length ? parts.join('\n') : ('未知错误: ' + Object.prototype.toString.call(e)));
+        }, true);
+        window.addEventListener('unhandledrejection', function (e) {
+          var r = e && e.reason;
+          var m = String((r && (r.message && r.message)) || (r && r.toString && r.toString()) || r || '未知Promise错误').slice(0, 160);
+          showCrash('异步错误: ' + m);
+        });
+
+        // 3) 新 SW 接管且尚未挂载 → 自动刷新一次（sessionStorage 防循环）
         if ('serviceWorker' in navigator) {
           navigator.serviceWorker.addEventListener('controllerchange', function () {
-            if (window.__GIGS_MOUNTED__) return;
+            if (window.__GIGS_MOUNTED__ || crashed) return;
             try {
               if (sessionStorage.getItem('gigs_sw_reloaded')) return;
               sessionStorage.setItem('gigs_sw_reloaded', '1');
@@ -105,7 +154,7 @@
           });
         }
 
-        // 3) 主程序文件加载失败（网络中断）→ 自动重试
+        // 4) 主程序文件加载失败（网络中断）→ 自动重试
         window.addEventListener(
           'error',
           function (e) {
@@ -127,7 +176,7 @@
         );
       })();
     </script>
-    <script type="module" crossorigin src="/dewu-seller-app/assets/index-DAcIxgE4.js"></script>
+    <script type="module" crossorigin src="/dewu-seller-app/assets/index-CoycNcwR.js"></script>
     <link rel="stylesheet" crossorigin href="/dewu-seller-app/assets/index-BpLGpC0-.css">
   <link rel="manifest" href="/dewu-seller-app/manifest.webmanifest"></head>
   <body>
