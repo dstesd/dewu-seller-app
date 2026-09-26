@@ -73,9 +73,12 @@
       .g-fail-url { display: block; background: #f9fafb; border: 1px solid #f3f4f6; border-radius: 8px;
         padding: 8px 10px; margin-top: 8px; font-size: 11px; color: #374151; word-break: break-all;
         -webkit-user-select: text; -moz-user-select: text; user-select: text; }
-      .g-fail-btn { margin-top: 18px; padding: 12px 48px; font-size: 14px; font-weight: 600; color: #fff;
+      .g-fail-btn { margin-top: 10px; padding: 12px 48px; font-size: 14px; font-weight: 600; color: #fff;
         background: #111827; border: none; border-radius: 999px; -webkit-appearance: none; }
       .g-fail-btn:active { opacity: .85; }
+      .g-fail-btn2 { margin-top: 18px; padding: 12px 36px; font-size: 13px; font-weight: 600; color: #111827;
+        background: #fff; border: 1.5px solid #111827; border-radius: 999px; -webkit-appearance: none; }
+      .g-fail-btn2:active { opacity: .75; }
     </style>
     <script>
       /*! 启动保护（内联，极简）：
@@ -225,10 +228,15 @@
           el.innerHTML =
             '<div class="g-fail-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>' +
             '<div class="g-fail-title"></div><div class="g-fail-msg"></div>' +
+            '<button type="button" class="g-fail-btn2">打开备用地址（免翻墙）</button>' +
             '<button type="button" class="g-fail-btn">重新加载</button>';
           el.querySelector('.g-fail-btn').onclick = function () {
             try { localStorage.removeItem(STALL_KEY); } catch (e) {}
             window.location.reload();
+          };
+          el.querySelector('.g-fail-btn2').onclick = function () {
+            // 一键跳到 GitHub Pages 备用站：同账号数据共用 Supabase，登录后立即看到全部数据
+            window.location.href = 'https://dstesd.github.io/dewu-seller-app/';
           };
           document.body.appendChild(el);
           return el;
@@ -321,7 +329,9 @@
         });
       })();
     </script>
-    <script type="module" crossorigin src="/dewu-seller-app/assets/index-Bs6PqmzI.js"></script>
+    <script type="module" crossorigin src="/dewu-seller-app/assets/index-Ca4IgBKB.js"></script>
+    <link rel="modulepreload" crossorigin href="/dewu-seller-app/assets/react-vendor-BhXywmkG.js">
+    <link rel="modulepreload" crossorigin href="/dewu-seller-app/assets/supabase-vendor-wIXNjVJv.js">
     <link rel="stylesheet" crossorigin href="/dewu-seller-app/assets/index-BWOCiOsr.css">
   <link rel="manifest" href="/dewu-seller-app/manifest.webmanifest"></head>
   <body>
