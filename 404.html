@@ -147,18 +147,47 @@
             document.body.appendChild(d);
           }
         }
+        // 资源/分片加载失败自动恢复：2 分钟窗口内最多重载 3 次，成功挂载后 main.tsx 清零
+        function autoRetryReload(reason) {
+          var n = 1;
+          try {
+            var raw = localStorage.getItem(RETRY_KEY);
+            var info = raw ? JSON.parse(raw) : { n: 0, t: 0 };
+            if (!info || Date.now() - (info.t || 0) > 120000) info = { n: 0, t: 0 };
+            info.n += 1; info.t = Date.now();
+            localStorage.setItem(RETRY_KEY, JSON.stringify(info));
+            n = info.n;
+          } catch (e) {}
+          if (n <= 3) {
+            setTimeout(function () { window.location.reload(); }, 1200);
+          } else {
+            showCrash(
+              (reason || '资源加载失败') +
+                '，已自动重试 3 次仍未成功。\n请点「重新加载」；若仍失败，请切换网络（WiFi ↔ 流量）后重试。'
+            );
+          }
+        }
         window.addEventListener('error', function (e) {
           var t = e && e.target;
-          // 资源加载失败（SCRIPT/LINK）已有专门重试，这里只处理真正的运行时错误
-          if (t && (t.tagName === 'SCRIPT' || t.tagName === 'LINK') && t !== window) return;
+          // 任何元素上的资源加载失败（IMG/SCRIPT/LINK/AUDIO/VIDEO…）都不算程序崩溃：
+          // 图片挂了只影响显示，绝不能砸崩整个应用；SCRIPT/LINK 的自动重试由下方监听器负责
+          if (t && t !== window) return;
+          var msg = e && e.message ? String(e.message) : '';
+          // 发版瞬间旧页面加载新分片 / 弱网下载分片失败 → 自动重载恢复，不砸崩
+          if (/importing a module|failed to fetch dynamically|loading chunk|chunkloaderror/i.test(msg)) {
+            autoRetryReload('页面模块下载失败');
+            return;
+          }
           var parts = [];
-          if (e && e.message) parts.push(String(e.message).slice(0, 160));
+          if (msg) parts.push(msg.slice(0, 160));
           if (e && e.filename) parts.push(String(e.filename).split('/').pop() + (e.lineno ? ' 行' + e.lineno : ''));
-          showCrash(parts.length ? parts.join('\n') : ('未知错误: ' + Object.prototype.toString.call(e)));
+          showCrash(parts.length ? parts.join('\n') : '未知错误');
         }, true);
         window.addEventListener('unhandledrejection', function (e) {
           var r = e && e.reason;
           var m = String((r && (r.message && r.message)) || (r && r.toString && r.toString()) || r || '未知Promise错误').slice(0, 160);
+          // 瞬时网络错误（弱网/切网/请求超时）不上屏：App 内部已有通知与重试机制，稍后会自动恢复
+          if (/failed to fetch|networkerror|load failed|network request failed|request timed out|timeout|aborted|internet connection|err_connection|err_name|err_cert/i.test(m)) return;
           showCrash('异步错误: ' + m);
         });
 
@@ -329,7 +358,7 @@
         });
       })();
     </script>
-    <script type="module" crossorigin src="/dewu-seller-app/assets/index-CLuWHAn3.js"></script>
+    <script type="module" crossorigin src="/dewu-seller-app/assets/index-BwEm6eWL.js"></script>
     <link rel="modulepreload" crossorigin href="/dewu-seller-app/assets/react-vendor-BhXywmkG.js">
     <link rel="modulepreload" crossorigin href="/dewu-seller-app/assets/supabase-vendor-wIXNjVJv.js">
     <link rel="stylesheet" crossorigin href="/dewu-seller-app/assets/index-CRD-95a2.css">
