@@ -2,6 +2,7 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
+    <link rel="manifest" href="/dewu-seller-app/manifest.webmanifest" />
     <link rel="icon" type="image/png" href="/dewu-seller-app/icon-512.png" />
     <link rel="shortcut icon" type="image/png" href="/dewu-seller-app/favicon.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/dewu-seller-app/icon-512.png" />
@@ -84,7 +85,7 @@
       /*! 启动保护（内联，极简）：
           1) standalone 深链纠正：桌面图标冷启动落在内页时自动回到根地址
           2) 静态登录外壳：点开图标立即看到登录页（#root 内），React 加载完成后自动替换为真实界面
-          3) 新 Service Worker 接管（新版本缓存就绪）且应用尚未挂载时自动刷新一次，避免“新网页+旧缓存”互相等待
+          3) 彻底注销 Service Worker 并清空缓存（v39 起 App 不再使用 SW，纯网页加载，杜绝缓存损坏卡死）
           4) 崩溃黑匣子：任何 JS 运行时错误 / Promise 异常，都把错误信息直接显示到屏幕（而不是白屏），便于定位 */
       (function () {
         var RETRY_KEY = 'gigs_boot_retry';
@@ -191,16 +192,17 @@
           showCrash('异步错误: ' + m);
         });
 
-        // 3) 新 SW 接管且尚未挂载 → 自动刷新一次（sessionStorage 防循环）
+        // 3) 彻底注销所有 Service Worker 并清空其缓存（v39 起 App 不再使用 SW）
+        //    旧版本残留的 SW 缓存损坏会导致页面卡死在登录壳，这里每次启动都强制清理
         if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.addEventListener('controllerchange', function () {
-            if (window.__GIGS_MOUNTED__ || crashed) return;
-            try {
-              if (sessionStorage.getItem('gigs_sw_reloaded')) return;
-              sessionStorage.setItem('gigs_sw_reloaded', '1');
-            } catch (e) {}
-            window.location.reload();
-          });
+          navigator.serviceWorker.getRegistrations().then(function (regs) {
+            regs.forEach(function (r) { r.unregister(); });
+          }).catch(function () {});
+        }
+        if ('caches' in window) {
+          caches.keys().then(function (names) {
+            names.forEach(function (n) { caches.delete(n); });
+          }).catch(function () {});
         }
 
         // 4) 主程序文件加载失败（网络中断）→ 自动重试
@@ -400,11 +402,11 @@
         });
       })();
     </script>
-    <script type="module" crossorigin src="/dewu-seller-app/assets/index-BGkNBKPB.js"></script>
+    <script type="module" crossorigin src="/dewu-seller-app/assets/index-CY7B2S17.js"></script>
     <link rel="modulepreload" crossorigin href="/dewu-seller-app/assets/react-vendor-BhXywmkG.js">
     <link rel="modulepreload" crossorigin href="/dewu-seller-app/assets/supabase-vendor-wIXNjVJv.js">
-    <link rel="stylesheet" crossorigin href="/dewu-seller-app/assets/index-DrCidNiB.css">
-  <link rel="manifest" href="/dewu-seller-app/manifest.webmanifest"></head>
+    <link rel="stylesheet" crossorigin href="/dewu-seller-app/assets/index-CpASHwHU.css">
+  </head>
   <body>
     <div id="root">
       <!-- 静态登录外壳：点开立即显示，React 挂载后自动替换 -->

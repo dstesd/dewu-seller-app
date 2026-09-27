@@ -1,1 +1,33 @@
-if(!self.define){let s,e={};const r=(r,n)=>(r=new URL(r+".js",n).href,e[r]||new Promise(e=>{if("document"in self){const s=document.createElement("script");s.src=r,s.onload=e,document.head.appendChild(s)}else s=r,importScripts(r),e()}).then(()=>{let s=e[r];if(!s)throw new Error(`Module ${r} didn’t register its module`);return s}));self.define=(n,i)=>{const l=s||("document"in self?document.currentScript.src:"")||location.href;if(e[l])return;let u={};const o=s=>r(s,l),a={module:{uri:l},exports:u,require:o};e[l]=Promise.all(n.map(s=>a[s]||o(s))).then(s=>(i(...s),u))}}define(["./workbox-dc521307"],function(s){"use strict";importScripts("sw-custom.js"),self.skipWaiting(),s.clientsClaim(),s.precacheAndRoute([{url:"sw-custom.js",revision:"62f07d7d06988d250e2e2e8b0cf5becf"},{url:"index.html",revision:"c3b841065e716612e4508e52fee7d265"},{url:"icon.svg",revision:"39eb82c1d240140ccd43b878061921b0"},{url:"icon-512.png",revision:"7dea0f743d92117302381118bf7bd390"},{url:"favicon.png",revision:"7dea0f743d92117302381118bf7bd390"},{url:"brands/uniqlo.svg",revision:"47f52fcdf98234996aa3b1c08a6776e7"},{url:"brands/puma.svg",revision:"4bec1e4f298c76656140da9e2f81bb97"},{url:"brands/nike.svg",revision:"43c2dadb1311bdd7d4406d6d19e12028"},{url:"brands/newbalance.svg",revision:"098b307c02d8ca5f35e34705ff190e81"},{url:"brands/lining.svg",revision:"db2d97d4f09f404aed7a5ea7355e1dd7"},{url:"brands/jordan.svg",revision:"257f4ce591b97103a50870001e8506ce"},{url:"brands/fila.svg",revision:"4287e2b0dfa44765ec81bd98895f0ca4"},{url:"brands/anta.svg",revision:"56983b3138a87088d409ce8763306a58"},{url:"brands/adidas.svg",revision:"51e42d298a9e818c57054b6c2698966c"},{url:"assets/workbox-window.prod.es5-BqEJf4Xk.js",revision:null},{url:"assets/upload-Y7yW3byp.js",revision:null},{url:"assets/trending-up-D3dtAvVx.js",revision:null},{url:"assets/supabase-vendor-wIXNjVJv.js",revision:null},{url:"assets/shopping-bag-BpK0cUVV.js",revision:null},{url:"assets/Settings-B4gJjg8e.js",revision:null},{url:"assets/search-G9I4Z3gY.js",revision:null},{url:"assets/save-CQ7iQggP.js",revision:null},{url:"assets/react-vendor-BhXywmkG.js",revision:null},{url:"assets/PullToRefresh-7Yma_aLN.js",revision:null},{url:"assets/ProfitAnalysis-BTKosZWA.js",revision:null},{url:"assets/Profile-BTpho4oQ.js",revision:null},{url:"assets/Products-BdbNny3P.js",revision:null},{url:"assets/percent-BNqY5-0V.js",revision:null},{url:"assets/pen-QeG2K0qw.js",revision:null},{url:"assets/Orders-BQTVkTOZ.js",revision:null},{url:"assets/OrderForm-BP18PRUh.js",revision:null},{url:"assets/OrderDetail-D82HgagN.js",revision:null},{url:"assets/OrderCard-BPDUehcy.js",revision:null},{url:"assets/log-out-CNrbysnJ.js",revision:null},{url:"assets/loader-circle-BFUbX0oG.js",revision:null},{url:"assets/Layout-Clf4PmoJ.js",revision:null},{url:"assets/index-DrCidNiB.css",revision:null},{url:"assets/index-BGkNBKPB.js",revision:null},{url:"assets/imageTrim-DliC-5SO.js",revision:null},{url:"assets/image-BAH3hC9B.js",revision:null},{url:"assets/Export-C0KpBM1W.js",revision:null},{url:"assets/dataSync-CgtkAq8M.js",revision:null},{url:"assets/Dashboard-DZILyrvT.js",revision:null},{url:"assets/chevron-right-4A-8es9b.js",revision:null},{url:"assets/chevron-left-D_ZQw8kP.js",revision:null},{url:"assets/chevron-down-5Mou2s-2.js",revision:null},{url:"assets/check-BlpgSocu.js",revision:null},{url:"assets/camera-Bh__pWe_.js",revision:null},{url:"assets/BrandLogo-BG065lbJ.js",revision:null},{url:"assets/arrow-right-BX2L9jWB.js",revision:null},{url:"assets/Analysis-CAsMkEde.js",revision:null},{url:"assets/AddOrder-B6U-W5Vv.js",revision:null},{url:"icon-512.png",revision:"7dea0f743d92117302381118bf7bd390"},{url:"manifest.webmanifest",revision:"dea7761bbd624eaeacf2cc39599937e9"}],{}),s.cleanupOutdatedCaches(),s.registerRoute(new s.NavigationRoute(s.createHandlerBoundToURL("index.html"))),s.registerRoute(/\/assets\/(?:xlsx|QRScanner|useStats)-[^/]*\.js$/,new s.StaleWhileRevalidate({cacheName:"gigs-lazy-assets",plugins:[new s.ExpirationPlugin({maxEntries:20,maxAgeSeconds:2592e3}),new s.CacheableResponsePlugin({statuses:[0,200]})]}),"GET")});
+/* 自毁型 Service Worker（v39 起 App 永久移除离线缓存机制）：
+   旧版本残留的 SW 在 iOS 上会缓存损坏导致 App 卡死在登录页。
+   浏览器检查 SW 更新时下载本文件 → 激活后删除全部缓存 → 注销自己 → 刷新所有已打开页面。
+   之后 App 变为纯网页加载，永远不再受 SW 缓存问题影响。 */
+self.addEventListener('install', function () {
+  self.skipWaiting();
+});
+self.addEventListener('activate', function (event) {
+  event.waitUntil(
+    (async function () {
+      try {
+        var keys = await caches.keys();
+        await Promise.all(
+          keys.map(function (k) {
+            return caches.delete(k);
+          })
+        );
+      } catch (e) {}
+      try {
+        await self.registration.unregister();
+      } catch (e) {}
+      try {
+        var clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+        for (var i = 0; i < clientList.length; i++) {
+          try {
+            clientList[i].navigate(clientList[i].url);
+          } catch (e) {}
+        }
+      } catch (e) {}
+    })()
+  );
+});
+// 故意不监听 fetch 事件：所有请求直接走网络，不做任何缓存拦截
