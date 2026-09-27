@@ -231,7 +231,7 @@
         var STALL_KEY = 'gigs_stall_retry';
         var STALL_MS = 9000;
         var AUTO_RETRIES = 3;
-        var WAIT_DEADLINE_MS = 90000;
+        var WAIT_DEADLINE_MS = 30000;
 
         function isMounted() {
           return window.__GIGS_MOUNTED__ === true || !document.getElementById('g-static-shell');
@@ -257,15 +257,18 @@
           el.innerHTML =
             '<div class="g-fail-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>' +
             '<div class="g-fail-title"></div><div class="g-fail-msg"></div>' +
+            '<button type="button" class="g-fail-btn" style="margin-bottom:10px">清除缓存重新加载</button>' +
             '<button type="button" class="g-fail-btn2">打开备用地址（免翻墙）</button>' +
-            '<button type="button" class="g-fail-btn">重新加载</button>';
-          el.querySelector('.g-fail-btn').onclick = function () {
-            try { localStorage.removeItem(STALL_KEY); } catch (e) {}
-            window.location.reload();
-          };
-          el.querySelector('.g-fail-btn2').onclick = function () {
+            '<button type="button" class="g-fail-btn" style="background:#6b7280;margin-top:10px">重新加载</button>';
+          var btns = el.querySelectorAll('.g-fail-btn, .g-fail-btn2');
+          if (btns[0]) btns[0].onclick = clearCachesAndReload; // 清除缓存重新加载
+          if (btns[1]) btns[1].onclick = function () {
             // 一键跳到 GitHub Pages 备用站：同账号数据共用 Supabase，登录后立即看到全部数据
             window.location.href = 'https://dstesd.github.io/dewu-seller-app/';
+          };
+          if (btns[2]) btns[2].onclick = function () {
+            try { localStorage.removeItem(STALL_KEY); } catch (e) {}
+            window.location.reload();
           };
           document.body.appendChild(el);
           return el;
@@ -307,21 +310,60 @@
           });
         }
 
+        /** 清除 SW 缓存并重新加载（卡死恢复的最终手段） */
+        function clearCachesAndReload() {
+          try {
+            localStorage.removeItem(RETRY_KEY);
+            localStorage.removeItem(STALL_KEY);
+            sessionStorage.removeItem('gigs_sw_reloaded');
+          } catch (e) {}
+          var done = function () { window.location.reload(); };
+          var p1 = 'serviceWorker' in navigator
+            ? navigator.serviceWorker.getRegistrations().then(function (regs) {
+                return Promise.all(regs.map(function (r) { return r.unregister(); }));
+              }).catch(function () {})
+            : Promise.resolve();
+          var p2 = 'caches' in window
+            ? caches.keys().then(function (names) {
+                return Promise.all(names.map(function (n) { return caches.delete(n); }));
+              }).catch(function () {})
+            : Promise.resolve();
+          Promise.all([p1, p2]).then(function () { setTimeout(done, 300); });
+          setTimeout(done, 2000); // 兜底：2秒后无论如何都刷新
+        }
+
         var BLOCKED_HTML =
           '应用资源长时间加载失败，通常是当前网络对该站点访问不畅。<br><br>请尝试：<br>' +
-          '<b>① 切换网络</b>（WiFi ↔ 手机流量）后点重新加载<br>' +
-          '<b>② 打开备用地址</b>（免翻墙）：' +
+          '<b>① 点下方「清除缓存重新加载」</b>（推荐，解决大部分卡死）<br>' +
+          '<b>② 切换网络</b>（WiFi ↔ 手机流量）后点重新加载<br>' +
+          '<b>③ 打开备用地址</b>（免翻墙）：' +
           '<span class="g-fail-url">https://dstesd.github.io/dewu-seller-app/</span>';
 
         var watchdogStart = Date.now();
         function slowDownloadMode() {
-          // 源站可达但下载慢：不打断、不计数重试，每 2.5 秒确认挂载状态，最多等到 90 秒
+          // 源站可达但下载慢：不打断、不计数重试，每 2.5 秒确认挂载状态；
+          // 超过 30 秒仍未挂载 → 大概率是 SW 缓存损坏，自动清缓存恢复
           setHint('<span class="g-spin"></span>网络较慢，资源下载中，请稍候...');
           var t = window.setInterval(function () {
             if (isMounted()) { window.clearInterval(t); return; }
             if (Date.now() - watchdogStart > WAIT_DEADLINE_MS) {
               window.clearInterval(t);
-              showFailPanel('网络连接失败', BLOCKED_HTML);
+              // 源站可达但长时间未挂载 → 自动清缓存重载（仅一次，防死循环）
+              var autoKey = 'gigs_auto_clear';
+              var autoN = 0;
+              try {
+                var raw = localStorage.getItem(autoKey);
+                var info = raw ? JSON.parse(raw) : { n: 0, t: 0 };
+                if (Date.now() - (info.t || 0) > 300000) info = { n: 0, t: 0 };
+                info.n += 1; info.t = Date.now();
+                localStorage.setItem(autoKey, JSON.stringify(info));
+                autoN = info.n;
+              } catch (e) {}
+              if (autoN <= 1) {
+                clearCachesAndReload();
+              } else {
+                showFailPanel('应用加载异常', BLOCKED_HTML);
+              }
             }
           }, 2500);
         }
@@ -358,7 +400,7 @@
         });
       })();
     </script>
-    <script type="module" crossorigin src="/dewu-seller-app/assets/index-NO-P8mE4.js"></script>
+    <script type="module" crossorigin src="/dewu-seller-app/assets/index-zYKTxrtE.js"></script>
     <link rel="modulepreload" crossorigin href="/dewu-seller-app/assets/react-vendor-BhXywmkG.js">
     <link rel="modulepreload" crossorigin href="/dewu-seller-app/assets/supabase-vendor-wIXNjVJv.js">
     <link rel="stylesheet" crossorigin href="/dewu-seller-app/assets/index-DrCidNiB.css">
