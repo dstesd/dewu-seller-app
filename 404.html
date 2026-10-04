@@ -217,7 +217,7 @@
                 var raw = localStorage.getItem(RETRY_KEY);
                 var info = raw ? JSON.parse(raw) : { n: 0, t: 0 };
                 if (!info || Date.now() - (info.t || 0) > 120000) info = { n: 0, t: 0 };
-                if (info.n < 3) {
+                if (info.n < 3 && !window.__GIGS_SHELL_BUSY) {
                   info.n += 1; info.t = Date.now();
                   localStorage.setItem(RETRY_KEY, JSON.stringify(info));
                   setTimeout(function () { window.location.reload(); }, 1500);
@@ -267,8 +267,8 @@
           var btns = el.querySelectorAll('.g-fail-btn, .g-fail-btn2');
           if (btns[0]) btns[0].onclick = clearCachesAndReload; // 清除缓存重新加载
           if (btns[1]) btns[1].onclick = function () {
-            // 一键跳到 GitHub Pages 备用站：同账号数据共用 Supabase，登录后立即看到全部数据
-            window.location.href = 'https://dstesd.github.io/dewu-seller-app/';
+            // 一键跳到主站：同账号数据共用 Supabase，登录后立即看到全部数据
+            window.location.href = 'https://ctoo.com.cn/';
           };
           if (btns[2]) btns[2].onclick = function () {
             try { localStorage.removeItem(STALL_KEY); } catch (e) {}
@@ -340,8 +340,8 @@
           '应用资源长时间加载失败，通常是当前网络对该站点访问不畅。<br><br>请尝试：<br>' +
           '<b>① 点下方「清除缓存重新加载」</b>（推荐，解决大部分卡死）<br>' +
           '<b>② 切换网络</b>（WiFi ↔ 手机流量）后点重新加载<br>' +
-          '<b>③ 打开备用地址</b>（免翻墙）：' +
-          '<span class="g-fail-url">https://dstesd.github.io/dewu-seller-app/</span>';
+          '<b>③ 打开备用地址</b>：' +
+          '<span class="g-fail-url">https://ctoo.com.cn/</span>';
 
         var watchdogStart = Date.now();
         function slowDownloadMode() {
@@ -352,6 +352,8 @@
             if (isMounted()) { window.clearInterval(t); return; }
             if (Date.now() - watchdogStart > WAIT_DEADLINE_MS) {
               window.clearInterval(t);
+              // 用户正在外壳表单输入时不打扰
+              if (window.__GIGS_SHELL_BUSY) return;
               // 源站可达但长时间未挂载 → 自动清缓存重载（仅一次，防死循环）
               var autoKey = 'gigs_auto_clear';
               var autoN = 0;
@@ -372,6 +374,8 @@
           }, 2500);
         }
         function blockedMode() {
+          // 用户正在外壳表单输入时不自动刷新，安静等待
+          if (window.__GIGS_SHELL_BUSY) return;
           var info = readStall();
           if (info.n < AUTO_RETRIES) {
             info.n += 1; info.t = Date.now();
@@ -398,9 +402,9 @@
           });
         }, STALL_MS);
 
-        // 网络恢复时若仍未挂载，自动重载
+        // 网络恢复时若仍未挂载，自动重载（用户正在外壳输入时不打扰）
         window.addEventListener('online', function () {
-          if (!isMounted()) window.location.reload();
+          if (!isMounted() && !window.__GIGS_SHELL_BUSY) window.location.reload();
         });
 
         // 6) 多线路引导：CN 构建产物中静态 module 标签被移除，由这里按线路注入入口。
@@ -455,29 +459,121 @@
               <button type="button" class="g-tab on">登录</button>
               <button type="button" class="g-tab">注册</button>
             </div>
-            <form onsubmit="return false;">
+            <div id="g-msg" style="display:none;margin-bottom:12px;padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.5;"></div>
+            <form id="g-form">
               <div class="g-field">
                 <label class="g-label">邮箱</label>
                 <div class="g-wrap">
                   <svg class="g-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>
-                  <input class="g-input" type="email" placeholder="请输入邮箱" autocomplete="username" />
+                  <input class="g-input" id="g-email" type="email" placeholder="请输入邮箱" autocomplete="username" />
                 </div>
               </div>
               <div class="g-field">
                 <label class="g-label">密码</label>
                 <div class="g-wrap">
                   <svg class="g-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                  <input class="g-input" type="password" placeholder="请输入密码（至少6位）" autocomplete="current-password" />
+                  <input class="g-input" id="g-pass" type="password" placeholder="请输入密码（至少6位）" autocomplete="current-password" />
                 </div>
               </div>
-              <button class="g-btn" type="submit" disabled>登录</button>
+              <button class="g-btn" id="g-submit" type="submit">登录</button>
             </form>
           </div>
           <p class="g-foot">登录后数据自动同步到云端，多设备可同时使用</p>
-          <div class="g-loadhint"><span class="g-spin"></span>正在加载，请稍候...</div>
+          <div class="g-loadhint"></div>
         </div>
       </div>
-      <div style="position:fixed;right:8px;bottom:6px;font-size:10px;color:#d1d5db;z-index:1;">v46</div>
+      <div style="position:fixed;right:8px;bottom:6px;font-size:10px;color:#d1d5db;z-index:1;">v47</div>
     </div>
+    <script>
+      // 外壳登录立即可用：不等主程序下载，直接调 Supabase 认证接口
+      // 成功后把会话写入 localStorage（键名与 supabase-js v2 默认一致），刷新后主程序直接识别登录态
+      (function () {
+        var SUPA_URL = 'https://hfrubbupvdoggjgcwvsk.supabase.co';
+        var SUPA_KEY = 'sb_publishable_w4vye2w3xQ5AfdeOGlxqaQ_xUf6KCfd';
+        var STORAGE_KEY = 'sb-hfrubbupvdoggjgcwvsk-auth-token';
+        var form = document.getElementById('g-form');
+        if (!form) return;
+        var tabs = document.querySelectorAll('#g-static-shell .g-tab');
+        var tabLogin = tabs[0];
+        var tabSignup = tabs[1];
+        var btn = document.getElementById('g-submit');
+        var msg = document.getElementById('g-msg');
+        var emailEl = document.getElementById('g-email');
+        var passEl = document.getElementById('g-pass');
+        var mode = 'login';
+
+        // 用户一旦开始输入，标记"正在操作"：看门狗不得再自动刷新页面（防输入被清空）
+        form.addEventListener('focusin', function () {
+          window.__GIGS_SHELL_BUSY = true;
+        });
+
+        function setMode(m) {
+          mode = m;
+          tabLogin.className = 'g-tab' + (m === 'login' ? ' on' : '');
+          tabSignup.className = 'g-tab' + (m === 'signup' ? ' on' : '');
+          btn.textContent = m === 'login' ? '登录' : '注册';
+          hideMsg();
+        }
+        tabLogin.onclick = function () { setMode('login'); };
+        tabSignup.onclick = function () { setMode('signup'); };
+
+        function showMsg(text, ok) {
+          msg.style.display = 'block';
+          msg.style.background = ok ? '#f0fdf4' : '#fef2f2';
+          msg.style.color = ok ? '#15803d' : '#b91c1c';
+          msg.style.border = ok ? '1px solid #bbf7d0' : '1px solid #fecaca';
+          msg.textContent = text;
+        }
+        function hideMsg() { msg.style.display = 'none'; }
+
+        form.onsubmit = function (e) {
+          e.preventDefault();
+          var email = (emailEl.value || '').trim();
+          var pass = passEl.value || '';
+          if (!email || !pass) { showMsg('请输入邮箱和密码'); return false; }
+          if (pass.length < 6) { showMsg('密码至少需要6位'); return false; }
+          btn.disabled = true;
+          btn.textContent = mode === 'login' ? '登录中...' : '注册中...';
+          hideMsg();
+          var url = mode === 'login'
+            ? SUPA_URL + '/auth/v1/token?grant_type=password'
+            : SUPA_URL + '/auth/v1/signup';
+          fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', apikey: SUPA_KEY },
+            body: JSON.stringify({ email: email, password: pass })
+          }).then(function (r) {
+            return r.json().then(function (d) { return { ok: r.ok, d: d }; });
+          }).then(function (res) {
+            if (!res.ok) {
+              var m = res.d && (res.d.error_description || res.d.msg || res.d.message);
+              if (m === 'Invalid login credentials') m = '邮箱或密码错误';
+              showMsg(m || '操作失败，请重试');
+              btn.disabled = false;
+              btn.textContent = mode === 'login' ? '登录' : '注册';
+              return;
+            }
+            var d = res.d;
+            if (d.access_token) {
+              try {
+                d.expires_at = Math.round(Date.now() / 1000) + (d.expires_in || 3600);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
+              } catch (err) {}
+              showMsg(mode === 'login' ? '登录成功，正在进入...' : '注册成功，正在进入...', true);
+              window.location.reload();
+            } else {
+              showMsg('注册成功，请登录', true);
+              setMode('login');
+              btn.disabled = false;
+            }
+          }).catch(function () {
+            showMsg('网络异常，请稍后重试');
+            btn.disabled = false;
+            btn.textContent = mode === 'login' ? '登录' : '注册';
+          });
+          return false;
+        };
+      })();
+    </script>
   </body>
 </html>
