@@ -409,9 +409,9 @@
         (function boot() {
           if (document.querySelector('script[type=module][src]')) return; // 非 CN 构建：走静态标签
           var HOSTS = [
+            '', // 同源优先：七牛云国内域名 / GitHub Pages 本机
             'https://hfrubbupvdoggjgcwvsk.supabase.co/storage/v1/object/public/gigs-web/',
-            'https://fastly.jsdelivr.net/gh/dstesd/dewu-seller-app@v45/',
-            '',
+            'https://fastly.jsdelivr.net/gh/dstesd/dewu-seller-app@v46/',
           ];
           var idx = 0;
           function tryHost(i) {
@@ -477,7 +477,7 @@
           <div class="g-loadhint"><span class="g-spin"></span>正在加载，请稍候...</div>
         </div>
       </div>
-      <div style="position:fixed;right:8px;bottom:6px;font-size:10px;color:#d1d5db;z-index:1;">v45</div>
+      <div style="position:fixed;right:8px;bottom:6px;font-size:10px;color:#d1d5db;z-index:1;">v46</div>
     </div>
   </body>
 </html>
