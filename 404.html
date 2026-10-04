@@ -98,19 +98,21 @@
           );
         }
         function deriveBase() {
+          // GitHub Pages 项目页：基准固定为 /<仓库名>/（JS 可能从 CDN 加载，不能看 script src）
+          if (location.hostname.indexOf('.github.io') !== -1) {
+            var seg = location.pathname.split('/')[1];
+            return seg ? '/' + seg + '/' : '/';
+          }
+          // 其他场景：仅当脚本与页面同源时才从 script src 反推；跨源（CDN）则按根路径
           var s = document.querySelector('script[type=module][src]');
           if (s) {
             var src = s.getAttribute('src') || '';
-            var p = src;
-            if (src.indexOf('http') === 0) {
-              try { p = new URL(src).pathname; } catch (e) {}
+            if (src.indexOf('http') !== 0 || src.indexOf(location.origin) === 0) {
+              var p = src;
+              try { p = new URL(src, location.href).pathname; } catch (e) {}
+              var i = p.indexOf('/assets/');
+              if (i >= 0) return p.substring(0, i + 1);
             }
-            var i = p.indexOf('/assets/');
-            if (i >= 0) return p.substring(0, i + 1);
-          }
-          if (location.hostname.indexOf('.github.io') !== -1) {
-            var seg = location.pathname.split('/')[1];
-            if (seg) return '/' + seg + '/';
           }
           return '/';
         }
@@ -402,10 +404,10 @@
         });
       })();
     </script>
-    <script type="module" crossorigin src="/dewu-seller-app/assets/index-zuI0GiGt.js"></script>
-    <link rel="modulepreload" crossorigin href="/dewu-seller-app/assets/react-vendor-BhXywmkG.js">
-    <link rel="modulepreload" crossorigin href="/dewu-seller-app/assets/supabase-vendor-wIXNjVJv.js">
-    <link rel="stylesheet" crossorigin href="/dewu-seller-app/assets/index-CpASHwHU.css">
+    <script type="module" crossorigin src="https://fastly.jsdelivr.net/gh/dstesd/dewu-seller-app@v43/assets/index.js"></script>
+    <link rel="modulepreload" crossorigin href="https://fastly.jsdelivr.net/gh/dstesd/dewu-seller-app@v43/assets/react-vendor.js">
+    <link rel="modulepreload" crossorigin href="https://fastly.jsdelivr.net/gh/dstesd/dewu-seller-app@v43/assets/supabase-vendor.js">
+    <link rel="stylesheet" crossorigin href="https://fastly.jsdelivr.net/gh/dstesd/dewu-seller-app@v43/assets/index.css">
   </head>
   <body>
     <div id="root">
@@ -440,7 +442,7 @@
           <div class="g-loadhint"><span class="g-spin"></span>正在加载，请稍候...</div>
         </div>
       </div>
-      <div style="position:fixed;right:8px;bottom:6px;font-size:10px;color:#d1d5db;z-index:1;">v42</div>
+      <div style="position:fixed;right:8px;bottom:6px;font-size:10px;color:#d1d5db;z-index:1;">v43</div>
     </div>
   </body>
 </html>
