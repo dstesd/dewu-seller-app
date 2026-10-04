@@ -402,12 +402,47 @@
         window.addEventListener('online', function () {
           if (!isMounted()) window.location.reload();
         });
+
+        // 6) 多线路引导：CN 构建产物中静态 module 标签被移除，由这里按线路注入入口。
+        //    同一份构建产物同构部署在三条线路（Supabase / jsDelivr / GitHub 同源），
+        //    每条 8 秒，失败或超时自动换下一条；任一线路通即可进入 App。
+        (function boot() {
+          if (document.querySelector('script[type=module][src]')) return; // 非 CN 构建：走静态标签
+          var HOSTS = [
+            'https://hfrubbupvdoggjgcwvsk.supabase.co/storage/v1/object/public/gigs-web/',
+            'https://fastly.jsdelivr.net/gh/dstesd/dewu-seller-app@v45/',
+            '',
+          ];
+          var idx = 0;
+          function tryHost(i) {
+            if (isMounted() || i >= HOSTS.length) return; // 全部失败则交给看门狗（自动重载/失败面板）
+            idx = i;
+            var base = HOSTS[i];
+            if (i > 0) {
+              setHint('<span class="g-spin"></span>直连较慢，正在切换加速线路 ' + i + '/' + (HOSTS.length - 1) + ' ...');
+            }
+            var link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = base + 'assets/index.css';
+            document.head.appendChild(link);
+            var s = document.createElement('script');
+            s.type = 'module';
+            if (base) s.crossOrigin = 'anonymous';
+            s.onerror = function () { tryHost(idx + 1); };
+            s.src = base + 'assets/index.js';
+            document.head.appendChild(s);
+          }
+          tryHost(0);
+          window.setInterval(function () {
+            if (!isMounted()) tryHost(idx + 1);
+          }, 8000);
+        })();
       })();
     </script>
-    <script type="module" crossorigin src="https://hfrubbupvdoggjgcwvsk.supabase.co/storage/v1/object/public/gigs-web/assets/index.js"></script>
-    <link rel="modulepreload" crossorigin href="https://hfrubbupvdoggjgcwvsk.supabase.co/storage/v1/object/public/gigs-web/assets/react-vendor.js">
-    <link rel="modulepreload" crossorigin href="https://hfrubbupvdoggjgcwvsk.supabase.co/storage/v1/object/public/gigs-web/assets/supabase-vendor.js">
-    <link rel="stylesheet" crossorigin href="https://hfrubbupvdoggjgcwvsk.supabase.co/storage/v1/object/public/gigs-web/assets/index.css">
+    
+    
+    
+    
   </head>
   <body>
     <div id="root">
@@ -442,7 +477,7 @@
           <div class="g-loadhint"><span class="g-spin"></span>正在加载，请稍候...</div>
         </div>
       </div>
-      <div style="position:fixed;right:8px;bottom:6px;font-size:10px;color:#d1d5db;z-index:1;">v44</div>
+      <div style="position:fixed;right:8px;bottom:6px;font-size:10px;color:#d1d5db;z-index:1;">v45</div>
     </div>
   </body>
 </html>
