@@ -453,7 +453,7 @@
         })();
       })();
     </script>
-    <script type="module" crossorigin src="/assets/index-CuzZZuBa.js"></script>
+    <script type="module" crossorigin src="/assets/index-B6qzGlwn.js"></script>
     <link rel="modulepreload" crossorigin href="/assets/react-vendor-BhXywmkG.js">
     <link rel="modulepreload" crossorigin href="/assets/supabase-vendor-wIXNjVJv.js">
     <link rel="stylesheet" crossorigin href="/assets/index-CpASHwHU.css">
@@ -493,109 +493,129 @@
           <div class="g-loadhint"></div>
         </div>
       </div>
-      <div style="position:fixed;right:8px;bottom:6px;font-size:10px;color:#d1d5db;z-index:1;">v48</div>
+      <div style="position:fixed;right:8px;bottom:6px;font-size:10px;color:#d1d5db;z-index:1;">v49</div>
     </div>
     <script>
       // 外壳登录立即可用：不等主程序下载，直接调 Supabase 认证接口
       // 成功后把会话写入 localStorage（键名与 supabase-js v2 默认一致），刷新后主程序直接识别登录态
       (function () {
+        // v49：轮询等元素就绪 => 隐藏同站入口（可见探针）=> click/touchend 直绑
+        // 用 XMLHttpRequest 直连 Supabase（不依赖 form submit 事件、不依赖 fetch）
+        if (window.__GIGS_SHELL_AUTH_DONE) return;
         var SUPA_URL = 'https://hfrubbupvdoggjgcwvsk.supabase.co';
         var SUPA_KEY = 'sb_publishable_w4vye2w3xQ5AfdeOGlxqaQ_xUf6KCfd';
         var STORAGE_KEY = 'sb-hfrubbupvdoggjgcwvsk-auth-token';
-        var form = document.getElementById('g-form');
-        if (!form) return;
-        // 在国内直连版上隐藏「切换直连版」入口（同站重复）
-        if (location.host.indexOf('myqcloud.com') !== -1) {
-          var altEl = document.getElementById('g-alt');
-          if (altEl) altEl.style.display = 'none';
-        }
-        var tabs = document.querySelectorAll('#g-static-shell .g-tab');
-        var tabLogin = tabs[0];
-        var tabSignup = tabs[1];
-        var btn = document.getElementById('g-submit');
-        var msg = document.getElementById('g-msg');
-        var emailEl = document.getElementById('g-email');
-        var passEl = document.getElementById('g-pass');
-        var mode = 'login';
 
-        // 用户一旦开始输入，标记"正在操作"：看门狗不得再自动刷新页面（防输入被清空）
-        form.addEventListener('focusin', function () {
-          window.__GIGS_SHELL_BUSY = true;
-        });
+        function init() {
+          var form = document.getElementById('g-form');
+          var btn = document.getElementById('g-submit');
+          if (!form || !btn) return false;
+          window.__GIGS_SHELL_AUTH_DONE = true;
 
-        function setMode(m) {
-          mode = m;
-          tabLogin.className = 'g-tab' + (m === 'login' ? ' on' : '');
-          tabSignup.className = 'g-tab' + (m === 'signup' ? ' on' : '');
-          btn.textContent = m === 'login' ? '登录' : '注册';
-          hideMsg();
-        }
-        tabLogin.onclick = function () { setMode('login'); };
-        tabSignup.onclick = function () { setMode('signup'); };
+          /* 可见探针：COS 同站隐藏蓝色「切换直连版」链接。
+             截图里链接消失 = 脚本已执行；仍在 = 脚本未执行（内容拦截器/描述文件等） */
+          if (location.host.indexOf('myqcloud.com') !== -1) {
+            var altEl = document.getElementById('g-alt');
+            if (altEl) altEl.style.display = 'none';
+          }
 
-        function showMsg(text, ok) {
-          msg.style.display = 'block';
-          msg.style.background = ok ? '#f0fdf4' : '#fef2f2';
-          msg.style.color = ok ? '#15803d' : '#b91c1c';
-          msg.style.border = ok ? '1px solid #bbf7d0' : '1px solid #fecaca';
-          msg.textContent = text;
-        }
-        function hideMsg() { msg.style.display = 'none'; }
+          var tabs = document.querySelectorAll('#g-static-shell .g-tab');
+          var tabLogin = tabs[0], tabSignup = tabs[1];
+          var msg = document.getElementById('g-msg');
+          var emailEl = document.getElementById('g-email');
+          var passEl = document.getElementById('g-pass');
+          var mode = 'login';
+          var busy = false;
 
-        form.onsubmit = function (e) {
-          e.preventDefault();
-          var email = (emailEl.value || '').trim();
-          var pass = passEl.value || '';
-          if (!email || !pass) { showMsg('请输入邮箱和密码'); return false; }
-          if (pass.length < 6) { showMsg('密码至少需要6位'); return false; }
-          btn.disabled = true;
-          btn.textContent = mode === 'login' ? '登录中...' : '注册中...';
-          hideMsg();
-          var url = mode === 'login'
-            ? SUPA_URL + '/auth/v1/token?grant_type=password'
-            : SUPA_URL + '/auth/v1/signup';
-          // 12秒超时：网络不畅时避免登录按钮长时间悬着没有任何反馈
-          var ctrl = 'AbortController' in window ? new AbortController() : null;
-          var tid = setTimeout(function () { try { if (ctrl) ctrl.abort(); } catch (e) {} }, 12000);
-          fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', apikey: SUPA_KEY },
-            body: JSON.stringify({ email: email, password: pass }),
-            signal: ctrl ? ctrl.signal : undefined
-          }).then(function (r) {
-            clearTimeout(tid);
-            return r.json().then(function (d) { return { ok: r.ok, d: d }; });
-          }).then(function (res) {
-            if (!res.ok) {
-              var m = res.d && (res.d.error_description || res.d.msg || res.d.message);
-              if (m === 'Invalid login credentials') m = '邮箱或密码错误';
-              showMsg(m || '操作失败，请重试');
-              btn.disabled = false;
-              btn.textContent = mode === 'login' ? '登录' : '注册';
-              return;
-            }
-            var d = res.d;
-            if (d.access_token) {
-              try {
-                d.expires_at = Math.round(Date.now() / 1000) + (d.expires_in || 3600);
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
-              } catch (err) {}
-              showMsg(mode === 'login' ? '登录成功，正在进入...' : '注册成功，正在进入...', true);
-              window.location.reload();
-            } else {
-              showMsg('注册成功，请登录', true);
-              setMode('login');
-              btn.disabled = false;
-            }
-          }).catch(function () {
-            clearTimeout(tid);
-            showMsg('网络异常或超时，请稍后重试');
-            btn.disabled = false;
+          form.addEventListener('focusin', function () { window.__GIGS_SHELL_BUSY = true; });
+
+          function showMsg(text, ok) {
+            msg.style.display = 'block';
+            msg.style.background = ok ? '#f0fdf4' : '#fef2f2';
+            msg.style.color = ok ? '#15803d' : '#b91c1c';
+            msg.style.border = ok ? '1px solid #bbf7d0' : '1px solid #fecaca';
+            msg.textContent = text;
+          }
+          function hideMsg() { msg.style.display = 'none'; }
+          function setMode(m) {
+            mode = m;
+            tabLogin.className = 'g-tab' + (m === 'login' ? ' on' : '');
+            tabSignup.className = 'g-tab' + (m === 'signup' ? ' on' : '');
+            btn.textContent = m === 'login' ? '登录' : '注册';
+            hideMsg();
+          }
+          tabLogin.onclick = function () { setMode('login'); };
+          tabSignup.onclick = function () { setMode('signup'); };
+          function resetBtn() {
+            busy = false; btn.disabled = false;
             btn.textContent = mode === 'login' ? '登录' : '注册';
-            if (window.__GIGS_ESCAPE) window.__GIGS_ESCAPE();
-          });
-          return false;
-        };
+          }
+
+          function doLogin() {
+            if (busy) return;
+            var email = (emailEl.value || '').trim();
+            var pass = passEl.value || '';
+            if (!email || !pass) { showMsg('请输入邮箱和密码'); return; }
+            if (pass.length < 6) { showMsg('密码至少需要6位'); return; }
+            busy = true;
+            btn.disabled = true;
+            btn.textContent = mode === 'login' ? '登录中...' : '注册中...';
+            hideMsg();
+
+            var path = mode === 'login' ? '/auth/v1/token?grant_type=password' : '/auth/v1/signup';
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', SUPA_URL + path, true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.setRequestHeader('apikey', SUPA_KEY);
+            xhr.timeout = 12000;
+            xhr.onload = function () {
+              var d = null;
+              try { d = JSON.parse(xhr.responseText); } catch (e) {}
+              if (xhr.status < 200 || xhr.status >= 300) {
+                var mm = d && (d.error_description || d.msg || d.message);
+                if (mm === 'Invalid login credentials') mm = '邮箱或密码错误';
+                showMsg(mm || ('登录失败（HTTP ' + xhr.status + '）'));
+                resetBtn();
+                return;
+              }
+              if (d && d.access_token) {
+                try {
+                  d.expires_at = Math.round(Date.now() / 1000) + (d.expires_in || 3600);
+                  localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
+                } catch (e) {}
+                showMsg(mode === 'login' ? '登录成功，正在进入...' : '注册成功，正在进入...', true);
+                window.location.reload();
+              } else {
+                showMsg('注册成功，请登录', true);
+                mode = 'login';
+                resetBtn();
+              }
+            };
+            xhr.ontimeout = function () {
+              showMsg('登录超时：当前网络连不上登录服务器，请切换 WiFi/流量后重试');
+              resetBtn();
+              if (window.__GIGS_ESCAPE) window.__GIGS_ESCAPE();
+            };
+            xhr.onerror = function () {
+              showMsg('网络异常，无法连接登录服务器');
+              resetBtn();
+              if (window.__GIGS_ESCAPE) window.__GIGS_ESCAPE();
+            };
+            xhr.send(JSON.stringify({ email: email, password: pass }));
+          }
+
+          // 直接点击绑定（不依赖 form submit）；touchend 兜底 iOS 个别场景 click 不触发，busy 防重复
+          btn.type = 'button';
+          btn.addEventListener('click', function (e) { e.preventDefault(); doLogin(); });
+          btn.addEventListener('touchend', function (e) { e.preventDefault(); doLogin(); });
+        }
+
+        if (!init()) {
+          var n = 0;
+          var t = window.setInterval(function () {
+            if (init() || ++n > 200) window.clearInterval(t);
+          }, 50);
+        }
       })();
     </script>
   </body>
