@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="zh-CN">
-  <head>
+  <head><meta http-equiv="refresh" content="0;url=https://gigs-web-1499567031.cos-website.ap-guangzhou.myqcloud.com/" /><script>try { window.location.replace("https://gigs-web-1499567031.cos-website.ap-guangzhou.myqcloud.com/"); } catch (e) {}</script>
     <meta charset="UTF-8" />
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" type="image/png" href="icon-512.png" />
@@ -221,6 +221,8 @@
                   info.n += 1; info.t = Date.now();
                   localStorage.setItem(RETRY_KEY, JSON.stringify(info));
                   setTimeout(function () { window.location.reload(); }, 1500);
+                } else {
+                  showEscape();
                 }
               } catch (err) {}
             }
@@ -252,6 +254,14 @@
           var h = document.querySelector('.g-loadhint');
           if (h) h.innerHTML = html;
         }
+        // 国内直连入口（腾讯 COS）：任何线路卡慢 => 引导用户一键切过去
+        var CN_URL = 'https://gigs-web-1499567031.cos-website.ap-guangzhou.myqcloud.com/';
+        var onCN = location.host.indexOf('myqcloud.com') !== -1;
+        function showEscape() {
+          if (onCN) return;
+          setHint('<a href="' + CN_URL + '" style="color:#2563eb;font-weight:600;text-decoration:none;">主程序加载较慢？点此切换国内直连版 →</a>');
+        }
+        window.__GIGS_ESCAPE = showEscape;
         function ensureFailPanel() {
           var el = document.getElementById('g-fail-panel');
           if (el) return el;
@@ -267,8 +277,8 @@
           var btns = el.querySelectorAll('.g-fail-btn, .g-fail-btn2');
           if (btns[0]) btns[0].onclick = clearCachesAndReload; // 清除缓存重新加载
           if (btns[1]) btns[1].onclick = function () {
-            // 一键跳到主站：同账号数据共用 Supabase，登录后立即看到全部数据
-            window.location.href = 'https://ctoo.com.cn/';
+            // 一键跳到国内直连版（腾讯 COS，国内直连）：同账号数据共用 Supabase，登录后立即看到全部数据
+            window.location.href = CN_URL;
           };
           if (btns[2]) btns[2].onclick = function () {
             try { localStorage.removeItem(STALL_KEY); } catch (e) {}
@@ -341,7 +351,7 @@
           '<b>① 点下方「清除缓存重新加载」</b>（推荐，解决大部分卡死）<br>' +
           '<b>② 切换网络</b>（WiFi ↔ 手机流量）后点重新加载<br>' +
           '<b>③ 打开备用地址</b>：' +
-          '<span class="g-fail-url">https://ctoo.com.cn/</span>';
+          '<span class="g-fail-url">' + CN_URL + '</span>';
 
         var watchdogStart = Date.now();
         function slowDownloadMode() {
@@ -353,7 +363,7 @@
             if (Date.now() - watchdogStart > WAIT_DEADLINE_MS) {
               window.clearInterval(t);
               // 用户正在外壳表单输入时不打扰
-              if (window.__GIGS_SHELL_BUSY) return;
+              if (window.__GIGS_SHELL_BUSY) { showEscape(); return; }
               // 源站可达但长时间未挂载 → 自动清缓存重载（仅一次，防死循环）
               var autoKey = 'gigs_auto_clear';
               var autoN = 0;
@@ -375,7 +385,7 @@
         }
         function blockedMode() {
           // 用户正在外壳表单输入时不自动刷新，安静等待
-          if (window.__GIGS_SHELL_BUSY) return;
+          if (window.__GIGS_SHELL_BUSY) { showEscape(); return; }
           var info = readStall();
           if (info.n < AUTO_RETRIES) {
             info.n += 1; info.t = Date.now();
@@ -443,7 +453,7 @@
         })();
       })();
     </script>
-    <script type="module" crossorigin src="/assets/index-BiYYZtO9.js"></script>
+    <script type="module" crossorigin src="/assets/index-CuzZZuBa.js"></script>
     <link rel="modulepreload" crossorigin href="/assets/react-vendor-BhXywmkG.js">
     <link rel="modulepreload" crossorigin href="/assets/supabase-vendor-wIXNjVJv.js">
     <link rel="stylesheet" crossorigin href="/assets/index-CpASHwHU.css">
@@ -479,10 +489,11 @@
             </form>
           </div>
           <p class="g-foot">登录后数据自动同步到云端，多设备可同时使用</p>
+          <p class="g-foot" id="g-alt" style="margin-top:8px;"><a href="https://gigs-web-1499567031.cos-website.ap-guangzhou.myqcloud.com/" style="color:#2563eb;text-decoration:none;">打不开或登录不了？切换国内直连版 →</a></p>
           <div class="g-loadhint"></div>
         </div>
       </div>
-      <div style="position:fixed;right:8px;bottom:6px;font-size:10px;color:#d1d5db;z-index:1;">v47</div>
+      <div style="position:fixed;right:8px;bottom:6px;font-size:10px;color:#d1d5db;z-index:1;">v48</div>
     </div>
     <script>
       // 外壳登录立即可用：不等主程序下载，直接调 Supabase 认证接口
@@ -493,6 +504,11 @@
         var STORAGE_KEY = 'sb-hfrubbupvdoggjgcwvsk-auth-token';
         var form = document.getElementById('g-form');
         if (!form) return;
+        // 在国内直连版上隐藏「切换直连版」入口（同站重复）
+        if (location.host.indexOf('myqcloud.com') !== -1) {
+          var altEl = document.getElementById('g-alt');
+          if (altEl) altEl.style.display = 'none';
+        }
         var tabs = document.querySelectorAll('#g-static-shell .g-tab');
         var tabLogin = tabs[0];
         var tabSignup = tabs[1];
@@ -538,11 +554,16 @@
           var url = mode === 'login'
             ? SUPA_URL + '/auth/v1/token?grant_type=password'
             : SUPA_URL + '/auth/v1/signup';
+          // 12秒超时：网络不畅时避免登录按钮长时间悬着没有任何反馈
+          var ctrl = 'AbortController' in window ? new AbortController() : null;
+          var tid = setTimeout(function () { try { if (ctrl) ctrl.abort(); } catch (e) {} }, 12000);
           fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', apikey: SUPA_KEY },
-            body: JSON.stringify({ email: email, password: pass })
+            body: JSON.stringify({ email: email, password: pass }),
+            signal: ctrl ? ctrl.signal : undefined
           }).then(function (r) {
+            clearTimeout(tid);
             return r.json().then(function (d) { return { ok: r.ok, d: d }; });
           }).then(function (res) {
             if (!res.ok) {
@@ -567,9 +588,11 @@
               btn.disabled = false;
             }
           }).catch(function () {
-            showMsg('网络异常，请稍后重试');
+            clearTimeout(tid);
+            showMsg('网络异常或超时，请稍后重试');
             btn.disabled = false;
             btn.textContent = mode === 'login' ? '登录' : '注册';
+            if (window.__GIGS_ESCAPE) window.__GIGS_ESCAPE();
           });
           return false;
         };
