@@ -12,6 +12,37 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="GIGS" />
     <title>GIGS 收益统计</title>
+    <!-- #region debug-point A:head-beacon -->
+    <script>
+      (function () {
+        var DBG = 'http://127.0.0.1:7777/event';
+        var SID = 'shell-login-dead';
+        window.__dbgSend = function (hyp, loc, msg, data) {
+          try {
+            fetch(DBG, { method: 'POST', keepalive: true, mode: 'cors', body: JSON.stringify({ sessionId: SID, runId: 'pre', hypothesisId: hyp, location: loc, msg: '[DEBUG] ' + msg, data: data || {}, ts: Date.now() }) }).catch(function () {});
+          } catch (e) {}
+        };
+        window.__dbgSend('A', 'index.html:head', 'head script start', { ua: navigator.userAgent, host: location.host });
+        window.addEventListener('error', function (e) {
+          window.__dbgSend('B', 'window.onerror', 'js error: ' + (e.message || ''), { src: e.filename, line: e.lineno, col: e.colno });
+        }, true);
+        window.addEventListener('unhandledrejection', function (e) {
+          window.__dbgSend('B', 'unhandledrejection', 'promise reject: ' + (e.reason && (e.reason.message || e.reason) || ''), {});
+        });
+        // H3: document 捕获阶段记录每次点击的真实 target（判断是否被浮层拦截）
+        document.addEventListener('click', function (e) {
+          var t = e.target;
+          window.__dbgSend('C', 'document.click', 'click target', { tag: t && t.tagName, id: t && t.id, cls: (t && t.className || '').toString().slice(0, 60), x: e.clientX, y: e.clientY });
+        }, true);
+        // H5: 5秒后检查外壳是否还在（不在=React已挂载接管）
+        setTimeout(function () {
+          var shell = document.getElementById('g-static-shell');
+          window.__dbgSend('E', 'index.html:t+5s', 'shell state', { shellExists: !!shell, authDone: !!window.__GIGS_SHELL_AUTH_DONE, readyState: document.readyState });
+        }, 5000);
+      })();
+    </script>
+    <!-- #endregion -->
+
     <style>
       /* 静态登录外壳样式（不依赖任何外部文件，点开图标立即显示） */
       .g-shell * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -493,7 +524,7 @@
           <div class="g-loadhint"></div>
         </div>
       </div>
-      <div style="position:fixed;right:8px;bottom:6px;font-size:10px;color:#d1d5db;z-index:1;">v50</div>
+      <div style="position:fixed;right:8px;bottom:6px;font-size:10px;color:#d1d5db;z-index:1;">v51</div>
     </div>
     <script>
       // 外壳登录立即可用：不等主程序下载，直接调 Supabase 认证接口
@@ -502,6 +533,9 @@
         // v49：轮询等元素就绪 => 隐藏同站入口（可见探针）=> click/touchend 直绑
         // 用 XMLHttpRequest 直连 Supabase（不依赖 form submit 事件、不依赖 fetch）
         if (window.__GIGS_SHELL_AUTH_DONE) return;
+        // #region debug-point A:shell-script-entry
+        try { window.__dbgSend && window.__dbgSend('A', 'index.html:shell-script', 'shell auth script executed', {}); } catch (e) {}
+        // #endregion
         var SUPA_URL = 'https://hfrubbupvdoggjgcwvsk.supabase.co';
         var SUPA_KEY = 'sb_publishable_w4vye2w3xQ5AfdeOGlxqaQ_xUf6KCfd';
         var STORAGE_KEY = 'sb-hfrubbupvdoggjgcwvsk-auth-token';
@@ -511,6 +545,9 @@
           var btn = document.getElementById('g-submit');
           if (!form || !btn) return false;
           window.__GIGS_SHELL_AUTH_DONE = true;
+          // #region debug-point D:shell-init
+          try { window.__dbgSend && window.__dbgSend('D', 'index.html:init', 'shell auth init ok', {}); } catch (e) {}
+          // #endregion
 
           /* 可见探针：COS 同站隐藏蓝色「切换直连版」链接。
              截图里链接消失 = 脚本已执行；仍在 = 脚本未执行（内容拦截器/描述文件等） */
@@ -568,7 +605,13 @@
             xhr.setRequestHeader('Content-Type', 'application/json');
             xhr.setRequestHeader('apikey', SUPA_KEY);
             xhr.timeout = 12000;
+            // #region debug-point D:xhr-lifecycle
+            try { window.__dbgSend && window.__dbgSend('D', 'index.html:xhr', 'xhr send', { path: path }); } catch (e) {}
+            // #endregion
             xhr.onload = function () {
+              // #region debug-point D:xhr-onload
+              try { window.__dbgSend && window.__dbgSend('D', 'index.html:xhr', 'xhr onload', { status: xhr.status }); } catch (e) {}
+              // #endregion
               var d = null;
               try { d = JSON.parse(xhr.responseText); } catch (e) {}
               if (xhr.status < 200 || xhr.status >= 300) {
@@ -592,11 +635,17 @@
               }
             };
             xhr.ontimeout = function () {
+              // #region debug-point D:xhr-timeout
+              try { window.__dbgSend && window.__dbgSend('D', 'index.html:xhr', 'xhr timeout', {}); } catch (e) {}
+              // #endregion
               showMsg('登录超时：当前网络连不上登录服务器，请切换 WiFi/流量后重试');
               resetBtn();
               if (window.__GIGS_ESCAPE) window.__GIGS_ESCAPE();
             };
             xhr.onerror = function () {
+              // #region debug-point D:xhr-error
+              try { window.__dbgSend && window.__dbgSend('D', 'index.html:xhr', 'xhr error', {}); } catch (e) {}
+              // #endregion
               showMsg('网络异常，无法连接登录服务器');
               resetBtn();
               if (window.__GIGS_ESCAPE) window.__GIGS_ESCAPE();
@@ -606,7 +655,12 @@
 
           // 直接点击绑定（不依赖 form submit）；touchend 兜底 iOS 个别场景 click 不触发，busy 防重复
           btn.type = 'button';
-          btn.addEventListener('click', function (e) { e.preventDefault(); doLogin(); });
+          btn.addEventListener('click', function (e) {
+            // #region debug-point D:btn-click
+            try { window.__dbgSend && window.__dbgSend('D', 'index.html:btn', 'login button click received', { mode: mode, hasEmail: !!(emailEl.value || '').trim(), passLen: (passEl.value || '').length }); } catch (err) {}
+            // #endregion
+            e.preventDefault(); doLogin();
+          });
           btn.addEventListener('touchend', function (e) { e.preventDefault(); doLogin(); });
         }
 
