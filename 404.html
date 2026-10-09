@@ -524,7 +524,7 @@
           <div class="g-loadhint"></div>
         </div>
       </div>
-      <div style="position:fixed;right:8px;bottom:6px;font-size:10px;color:#d1d5db;z-index:1;">v51</div>
+      <div style="position:fixed;right:8px;bottom:6px;font-size:10px;color:#d1d5db;z-index:1;">v52</div>
     </div>
     <script>
       // 外壳登录立即可用：不等主程序下载，直接调 Supabase 认证接口
@@ -662,6 +662,7 @@
             e.preventDefault(); doLogin();
           });
           btn.addEventListener('touchend', function (e) { e.preventDefault(); doLogin(); });
+          return true;
         }
 
         if (!init()) {
