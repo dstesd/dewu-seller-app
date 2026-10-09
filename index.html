@@ -459,9 +459,12 @@
             'https://fastly.jsdelivr.net/gh/dstesd/dewu-seller-app@__GIGS_CDN_TAG__/',
           ];
           var idx = 0;
+          var pending = false; // 有线路正在下载=true，下载中绝不叠加注入（防多实例并发起爆内存）
+          var bootTimer = null;
           function tryHost(i) {
-            if (isMounted() || i >= HOSTS.length) return; // 全部失败则交给看门狗（自动重载/失败面板）
+            if (isMounted() || i >= HOSTS.length || pending) return; // 全部失败则交给看门狗（自动重载/失败面板）
             idx = i;
+            pending = true;
             var base = HOSTS[i];
             if (i > 0) {
               setHint('<span class="g-spin"></span>直连较慢，正在切换加速线路 ' + i + '/' + (HOSTS.length - 1) + ' ...');
@@ -473,13 +476,26 @@
             var s = document.createElement('script');
             s.type = 'module';
             if (base) s.crossOrigin = 'anonymous';
-            s.onerror = function () { tryHost(idx + 1); };
+            s.onload = function () {
+              // 加载成功：停止换线，永不再注入第二份
+              pending = false;
+              if (bootTimer) { window.clearInterval(bootTimer); bootTimer = null; }
+            };
+            s.onerror = function () {
+              // 只有当前线路彻底失败（网络错误）才换下一条
+              pending = false;
+              tryHost(idx + 1);
+            };
             s.src = base + 'assets/index.js';
             document.head.appendChild(s);
+            // #region debug-point E:boot-inject
+            try { window.__dbgSend && window.__dbgSend('E', 'index.html:boot', 'inject main script', { host: i, base: base || 'same-origin' }); } catch (e) {}
+            // #endregion
           }
           tryHost(0);
-          window.setInterval(function () {
-            if (!isMounted()) tryHost(idx + 1);
+          bootTimer = window.setInterval(function () {
+            if (isMounted()) { window.clearInterval(bootTimer); bootTimer = null; return; }
+            if (!pending) tryHost(idx + 1);
           }, 8000);
         })();
       })();
@@ -524,7 +540,7 @@
           <div class="g-loadhint"></div>
         </div>
       </div>
-      <div style="position:fixed;right:8px;bottom:6px;font-size:10px;color:#d1d5db;z-index:1;">v52</div>
+      <div style="position:fixed;right:8px;bottom:6px;font-size:10px;color:#d1d5db;z-index:1;">v53</div>
     </div>
     <script>
       // 外壳登录立即可用：不等主程序下载，直接调 Supabase 认证接口
