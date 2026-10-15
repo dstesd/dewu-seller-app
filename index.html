@@ -2,9 +2,9 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/dewu-seller-app/icon-512.png" />
-    <link rel="shortcut icon" type="image/png" href="/dewu-seller-app/favicon.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/dewu-seller-app/icon-512.png" />
+    <link rel="icon" type="image/png" href="/icon-512.png" />
+    <link rel="shortcut icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icon-512.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#1f2937" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -97,6 +97,10 @@
           );
         }
         function deriveBase() {
+          if (location.hostname.indexOf('.github.io') !== -1) {
+            var seg = location.pathname.split('/')[1];
+            if (seg) return '/' + seg + '/';
+          }
           var s = document.querySelector('script[type=module][src]');
           if (s) {
             var src = s.getAttribute('src') || '';
@@ -106,10 +110,6 @@
             }
             var i = p.indexOf('/assets/');
             if (i >= 0) return p.substring(0, i + 1);
-          }
-          if (location.hostname.indexOf('.github.io') !== -1) {
-            var seg = location.pathname.split('/')[1];
-            if (seg) return '/' + seg + '/';
           }
           return '/';
         }
@@ -265,7 +265,7 @@
           };
           el.querySelector('.g-fail-btn2').onclick = function () {
             // 一键跳到 GitHub Pages 备用站：同账号数据共用 Supabase，登录后立即看到全部数据
-            window.location.href = 'https://dstesd.github.io/dewu-seller-app/';
+            window.location.href = 'https://dstesd.github.io/';
           };
           document.body.appendChild(el);
           return el;
@@ -311,7 +311,7 @@
           '应用资源长时间加载失败，通常是当前网络对该站点访问不畅。<br><br>请尝试：<br>' +
           '<b>① 切换网络</b>（WiFi ↔ 手机流量）后点重新加载<br>' +
           '<b>② 打开备用地址</b>（免翻墙）：' +
-          '<span class="g-fail-url">https://dstesd.github.io/dewu-seller-app/</span>';
+          '<span class="g-fail-url">https://dstesd.github.io/</span>';
 
         var watchdogStart = Date.now();
         function slowDownloadMode() {
@@ -358,11 +358,11 @@
         });
       })();
     </script>
-    <script type="module" crossorigin src="/dewu-seller-app/assets/index-CQtrOi8Q.js"></script>
-    <link rel="modulepreload" crossorigin href="/dewu-seller-app/assets/react-vendor-BhXywmkG.js">
-    <link rel="modulepreload" crossorigin href="/dewu-seller-app/assets/supabase-vendor-wIXNjVJv.js">
-    <link rel="stylesheet" crossorigin href="/dewu-seller-app/assets/index-DrCidNiB.css">
-  <link rel="manifest" href="/dewu-seller-app/manifest.webmanifest"></head>
+    <script type="module" crossorigin src="/assets/index-CQtrOi8Q.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/react-vendor-BhXywmkG.js">
+    <link rel="modulepreload" crossorigin href="/assets/supabase-vendor-wIXNjVJv.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-DrCidNiB.css">
+  <link rel="manifest" href="/manifest.webmanifest"></head>
   <body>
     <div id="root">
       <!-- 静态登录外壳：点开立即显示，React 挂载后自动替换 -->
